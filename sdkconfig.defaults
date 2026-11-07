@@ -1,0 +1,17 @@
+# Capture task gets core 1 to itself; WiFi/lwIP stay on core 0.
+CONFIG_FREERTOS_HZ=1000
+CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=10
+CONFIG_ESP_WIFI_DYNAMIC_TX_BUFFER_NUM=32
+CONFIG_LWIP_UDP_RECVMBOX_SIZE=16
+
+# Keep the device clock sane between SNTP polls.
+CONFIG_LWIP_SNTP_UPDATE_DELAY=900000
+
+# Uncomment on boards with PSRAM (e.g. ESP32-S3 N8R8) for a much bigger
+# outage buffer, then raise KCAN_RING_RECORDS in menuconfig.
+# CONFIG_SPIRAM=y
+
+# Required by esphome/wireguard on IDF 5.x: makes esp_netif keep its pointer
+# in netif client_data instead of netif->state. Without it, adding the
+# WireGuard netif crashes in esp_netif_internal_dhcpc_cb (LoadProhibited).
+CONFIG_LWIP_PPP_SUPPORT=y

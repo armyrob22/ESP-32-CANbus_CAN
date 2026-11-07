@@ -1,0 +1,130 @@
+menu "Kia CAN bridge"
+
+    menu "WiFi (phone hotspot)"
+        config KCAN_WIFI_SSID
+            string "Hotspot SSID"
+            default "myhotspot"
+        config KCAN_WIFI_PASSWORD
+            string "Hotspot password"
+            default ""
+        config KCAN_NTP_SERVER
+            string "NTP server"
+            default "pool.ntp.org"
+    endmenu
+
+    menu "WireGuard"
+        config KCAN_WG_PRIVATE_KEY
+            string "ESP32 private key (wg genkey)"
+            default ""
+        config KCAN_WG_PEER_PUBLIC_KEY
+            string "server2 public key"
+            default ""
+        config KCAN_WG_PRESHARED_KEY
+            string "Preshared key (wg genpsk, blank = none)"
+            default ""
+        config KCAN_WG_ENDPOINT
+            string "Home endpoint (DDNS hostname or public IP)"
+            default "home.example.com"
+        config KCAN_WG_ENDPOINT_PORT
+            int "Home endpoint UDP port (router forward)"
+            range 1 65535
+            default 51821
+        config KCAN_WG_LOCAL_IP
+            string "ESP32 tunnel address"
+            default "10.88.0.2"
+        config KCAN_WG_LOCAL_NETMASK
+            string "Tunnel netmask"
+            default "255.255.255.0"
+        config KCAN_WG_KEEPALIVE_S
+            int "Persistent keepalive (s), keeps carrier NAT open"
+            range 0 600
+            default 25
+    endmenu
+
+    menu "Logger target (inside the tunnel)"
+        config KCAN_SERVER_IP
+            string "server2 tunnel address"
+            default "10.88.0.1"
+        config KCAN_SERVER_PORT
+            int "Logger UDP port"
+            range 1 65535
+            default 47000
+    endmenu
+
+    menu "CAN"
+        config KCAN_CAN_TX_GPIO
+            int "TWAI TX GPIO (to transceiver TXD)"
+            range 0 48
+            default 5
+        config KCAN_CAN_RX_GPIO
+            int "TWAI RX GPIO (from transceiver RXD)"
+            range 0 48
+            default 4
+
+        choice KCAN_BITRATE
+            prompt "Bus bitrate"
+            default KCAN_BITRATE_500K
+            config KCAN_BITRATE_100K
+                bool "100 kbit/s (Hyundai/Kia body bus)"
+            config KCAN_BITRATE_125K
+                bool "125 kbit/s"
+            config KCAN_BITRATE_250K
+                bool "250 kbit/s"
+            config KCAN_BITRATE_500K
+                bool "500 kbit/s (OBD-II pins 6/14)"
+            config KCAN_BITRATE_1M
+                bool "1 Mbit/s"
+        endchoice
+
+        config KCAN_MARK_GPIO
+            int "Mark button GPIO (button to GND, -1 = none)"
+            range -1 48
+            default 0
+            help
+                GPIO0 is the BOOT button on most dev boards, so you get a
+                mark button for free. Press it right as you do an action.
+
+        config KCAN_SIM_TRAFFIC
+            bool "Simulate CAN traffic (bench test, TWAI not started)"
+            default n
+            help
+                Generates fake frames in software so you can test the
+                hotspot -> WireGuard -> server2 path without the car.
+                Nothing is ever put on a real bus in either mode.
+    endmenu
+
+    menu "Buffering and bandwidth"
+        config KCAN_RING_RECORDS
+            int "Outage buffer size (records, 24 B each)"
+            range 256 262144
+            default 4096
+            help
+                Records held while the link is down. 4096 = 96 KB of
+                internal RAM. With PSRAM enabled you can go to 65536+.
+        config KCAN_CHANGE_ONLY
+            bool "Send only changed frames (saves cellular data)"
+            default y
+            help
+                Per standard ID, a frame is sent only when DLC or payload
+                changes, plus a keepalive copy every KCAN_KEEPALIVE_MS.
+                Each record carries how many identical frames were
+                suppressed, so the server can still recover rates.
+                Extended IDs are always passed through.
+        config KCAN_KEEPALIVE_MS
+            int "Unchanged-ID keepalive (ms)"
+            depends on KCAN_CHANGE_ONLY
+            range 100 60000
+            default 1000
+        config KCAN_BATCH_RECORDS
+            int "Max records per UDP packet"
+            range 1 56
+            default 50
+            help
+                56 records + header fits under the WireGuard MTU (1420).
+        config KCAN_FLUSH_MS
+            int "Send a partial batch after this long (ms)"
+            range 5 1000
+            default 50
+    endmenu
+
+endmenu
